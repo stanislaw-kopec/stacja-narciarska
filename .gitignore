@@ -1,0 +1,22 @@
+# Ignorowanie plików kompilacji
+*.o
+*.a
+*.so
+*.out
+*.exe
+
+# Ignorowanie folderów kompilacji
+build/
+bin/
+obj/
+
+# Ignorowanie plików tymczasowych edytorów
+*~  # Pliki tymczasowe edytorów, np. vim, emacs
+*.swp  # Pliki swap edytorów
+
+# Ignorowanie plików systemowych
+.DS_Store  # System macOS
+Thumbs.db  # System Windows
+
+# Ignorowanie plików Makefile generowanych automatycznie
+Makefile.dep
