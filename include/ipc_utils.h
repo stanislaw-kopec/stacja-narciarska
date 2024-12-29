@@ -1,25 +1,32 @@
 #ifndef IPC_UTILS_H
 #define IPC_UTILS_H
 
-#include <sys/ipc.h>
+#include <sys/ipc.h>  // Nagłówek dla key_t i ftok
 #include <sys/types.h>
+#include <sys/sem.h>
+#include <sys/shm.h>
+#include <sys/msg.h>
+#include <stddef.h>
 
-// Tworzenie i obsługa semaforów
+struct message {
+    long mtype;
+    char mtext[100];
+};
+
+// Semafory
 int create_semaphore(key_t key, int initial_value);
-void remove_semaphore(int sem_id);
-void semaphore_wait(int sem_id);
-void semaphore_signal(int sem_id);
+int remove_semaphore(int sem_id);
 
-// Tworzenie i obsługa pamięci dzielonej
+// Pamięć dzielona
 int create_shared_memory(key_t key, size_t size);
-void *attach_shared_memory(int shm_id);
-void detach_shared_memory(void *shm_ptr);
-void remove_shared_memory(int shm_id);
+void* attach_shared_memory(int shmid);
+int detach_shared_memory(void* addr);
+int remove_shared_memory(int shmid);
 
-// Tworzenie i obsługa kolejek komunikatów
+// Kolejki komunikatów
 int create_message_queue(key_t key);
-void send_message(int msg_id, long msg_type, const char *msg_text);
-ssize_t receive_message(int msg_id, long msg_type, char *buffer, size_t buffer_size);
-void remove_message_queue(int msg_id);
+int send_message(int msgid, long mtype, const char* text);
+int receive_message(int msgid, long mtype, char* buffer, size_t buffer_size);
+int remove_message_queue(int msgid);
 
-#endif // IPC_UTILS_H
+#endif

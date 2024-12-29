@@ -1,8 +1,8 @@
 #ifndef SKI_STATION_H
 #define SKI_STATION_H
 
-void kasjer();
-void narciarz(int id, int shm_id, int sem_id);
-void generuj_raport();
+void cashier_process();
+void worker_process();
+void skier_process();
 
-#endif // SKI_STATION_H
+#endif

@@ -1,33 +1,58 @@
 #include "ipc_utils.h"
-#include "worker.h"
 #include "ski_station.h"
-#include <sys/wait.h>
-#include <sys/ipc.h>
-#include <unistd.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <sys/ipc.h>  // Nagłówek dla key_t i ftok
+#include <sys/types.h>
+#include <unistd.h> // Dla fork()
+#include <sys/wait.h> // Dla funkcji wait
+
 
 int main() {
-    printf("Inicjalizacja stacji narciarskiej\n");
-
-    // Inicjalizacja IPC
-    key_t sem_key = ftok("ipcfile", 1);
-    int sem_id = create_semaphore(sem_key, 1);
-
-    // Tworzenie procesów
-    if (fork() == 0) kasjer();
-    if (fork() == 0) pracownik1(sem_id, -1);
-    if (fork() == 0) pracownik2(sem_id, -1);
-
-    for (int i = 0; i < 10; i++) {
-        if (fork() == 0) narciarz(i, -1, sem_id);
+    key_t key = ftok("ipcfile", 1);
+    if (key == -1) {
+        perror("ftok");
+        return 1;
     }
 
-    // Czekanie na zakończenie procesów
-    while (wait(NULL) > 0);
+    // Tworzenie zasobów IPC
+    int shmid = create_shared_memory(key, 1024);
+    int msgid = create_message_queue(key);
+    if (shmid == -1 || msgid == -1) return 1;
 
-    // Usuwanie zasobów IPC
-    remove_semaphore(sem_id);
+    printf("Zasoby IPC utworzone.\n");
 
-    printf("Zakończenie działania stacji narciarskiej\n");
+    // Procesy potomne
+    pid_t pid1 = fork();
+    if (pid1 == 0) {
+        // Proces kasjera
+        cashier_process();
+        exit(0);
+    }
+
+    pid_t pid2 = fork();
+    if (pid2 == 0) {
+        // Proces pracownika
+        worker_process();
+        exit(0);
+    }
+
+    pid_t pid3 = fork();
+    if (pid3 == 0) {
+        // Proces narciarzy
+        skier_process();
+        exit(0);
+    }
+
+    // Oczekiwanie na zakończenie procesów potomnych
+    wait(NULL);
+    wait(NULL);
+    wait(NULL);
+
+    // Usuwanie zasobów
+    remove_shared_memory(shmid);
+    remove_message_queue(msgid);
+
+    printf("Zasoby IPC usunięte.\n");
     return 0;
 }
