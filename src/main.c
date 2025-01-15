@@ -25,7 +25,7 @@ int main() {
     // Procesy potomne
     pid_t pid1 = fork();
     if (pid1 == 0) {
-        // Proces kasjera
+        // Proces kasjeraaa
         cashier_process();
         exit(0);
     }

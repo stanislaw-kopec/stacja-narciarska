@@ -8,7 +8,7 @@
 #include <string.h>
 #include <errno.h>
 
-// Semafory
+// Semaforyy
 int create_semaphore(key_t key, int initial_value) {
     int sem_id = semget(key, 1, IPC_CREAT | 0666);
     if (sem_id == -1) {

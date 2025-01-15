@@ -63,7 +63,7 @@ void worker_process() {
         }
 
         printf("Pracownik obsługuje komunikat: %s\n", buffer);
-        sleep(2);
+        sleep(5);
     }
 
     printf("Pracownik zakończył obsługę stacji.\n");
@@ -86,7 +86,7 @@ void skier_process() {
     int* shared_data = (int*)attach_shared_memory(shmid);
     if (shared_data == NULL) return;
 
-    // Inicjalizacja danych w pamięci dzielonej
+    // Inicjalizacja danych w pamięci dzielonejjj
     for (int i = 0; i < MAX_PASSENGERS; i++) {
         shared_data[i] = 0;
     }
@@ -109,7 +109,7 @@ void skier_process() {
             send_message(msgid, 1, "Problemy techniczne");
         }
 
-        sleep(1);
+        sleep(15);
     }
 
     // Wyświetlenie raportu
