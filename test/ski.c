@@ -11,6 +11,7 @@
 #include <sys/shm.h>
 #include <sys/msg.h>
 #include <fcntl.h>
+#include <stdarg.h>
 
 // Definicje stałych
 #define MAX_PEOPLE_ON_PLATFORM 120     // Maksymalna liczba osób na platformie
@@ -152,8 +153,13 @@ void print_time() {
 }
 
 // Funkcja do drukowania kolorowego tekstu
-void print_colored(const char* color, const char* message) {
-    printf("%s%s\033[0m", color, message);
+void print_colored(const char* color, const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    printf("%s", color);
+    vprintf(format, args);
+    printf("\033[0m");
+    va_end(args);
 }
 
 // Funkcja obsługująca sygnały (zatrzymanie/wznowienie wyciągu)
@@ -294,10 +300,10 @@ void add_skier_to_queue(Skier skier) {
         skier_queue.skiers[skier_queue.count++] = skier;
         sem_post(&skier_queue.queue_sem);
         print_time();
-        printf("Narciarz %d dodany do kolejki.\n", skier.id);
+        print_colored("\033[33m", "Narciarz %d dodany do kolejki.\n", skier.id);
     } else {
         print_time();
-        printf("Kolejka jest pełna. Narciarz %d nie może zostać dodany.\n", skier.id);
+        print_colored("\033[33m", "Kolejka jest pełna. Narciarz %d nie może zostać dodany.\n", skier.id);
     }
     pthread_mutex_unlock(&skier_queue.queue_mutex);
 }
@@ -306,6 +312,11 @@ void add_skier_to_queue(Skier skier) {
 Skier get_skier_from_queue() {
     sem_wait(&skier_queue.queue_sem);
     pthread_mutex_lock(&skier_queue.queue_mutex);
+    if (skier_queue.count == 0) {
+        pthread_mutex_unlock(&skier_queue.queue_mutex);
+        Skier empty_skier = {0};
+        return empty_skier;
+    }
     Skier skier = skier_queue.skiers[--skier_queue.count];
     pthread_mutex_unlock(&skier_queue.queue_mutex);
     return skier;
@@ -346,7 +357,7 @@ void* kasjer(void* arg) {
         // Sprawdź, czy bramki są otwarte
         if (!are_gates_open) {
             print_time();
-            printf("Kasjer: Stok zamknięty. Sprzedaż biletów wstrzymana.\n");
+            print_colored("\033[34m", "Kasjer: Stok zamknięty. Sprzedaż biletów wstrzymana.\n");
             sleep(1); // Czekaj przed ponownym sprawdzeniem
             continue; // Nie sprzedawaj biletów, jeśli stok jest zamknięty
         }
@@ -399,7 +410,7 @@ void* bramka(void* arg) {
         if (is_lift_stopped) {
             pthread_mutex_unlock(&lift_stop_mutex);
             print_time();
-            printf("Bramka %d: Wyciąg zatrzymany. Narciarz %d nie może wejść na krzesełko.\n", gate->id, skier.id);
+            print_colored("\033[33m", "Bramka %d: Wyciąg zatrzymany. Narciarz %d nie może wejść na krzesełko.\n", gate->id, skier.id);
             continue;
         }
         pthread_mutex_unlock(&lift_stop_mutex);
@@ -407,16 +418,16 @@ void* bramka(void* arg) {
         if (skier.is_vip) {
             pthread_mutex_lock(&gate->gate_mutex);
             print_time();
-            printf("Bramka %d: VIP Narciarz %d wszedł na platformę bez czekania.\n", gate->id, skier.id);
+            print_colored("\033[33m", "Bramka %d: VIP Narciarz %d wszedł na platformę bez czekania.\n", gate->id, skier.id);
             add_gate_record(skier.id);
             pthread_mutex_lock(&lower_platform.platform_mutex);
             if (lower_platform.count < MAX_PEOPLE_ON_PLATFORM) {
                 lower_platform.skiers[lower_platform.count++] = skier;
                 print_time();
-                printf("Bramka %d: VIP Narciarz %d dodany na platformę.\n", gate->id, skier.id);
+                print_colored("\033[33m", "Bramka %d: VIP Narciarz %d dodany na platformę.\n", gate->id, skier.id);
             } else {
                 print_time();
-                printf("Bramka %d: Platforma jest pełna. VIP Narciarz %d musi czekać.\n", gate->id, skier.id);
+                print_colored("\033[33m", "Bramka %d: Platforma jest pełna. VIP Narciarz %d musi czekać.\n", gate->id, skier.id);
             }
             pthread_mutex_unlock(&lower_platform.platform_mutex);
             pthread_mutex_unlock(&gate->gate_mutex);
@@ -435,7 +446,7 @@ void* bramka(void* arg) {
             }
             if (!found_adult) {
                 print_time();
-                printf("Bramka %d: Narciarz %d (dziecko) nie może wejść bez opiekuna.\n", gate->id, skier.id);
+                print_colored("\033[33m", "Bramka %d: Narciarz %d (dziecko) nie może wejść bez opiekuna.\n", gate->id, skier.id);
                 pthread_mutex_unlock(&lower_platform.platform_mutex);
                 continue;
             }
@@ -444,16 +455,17 @@ void* bramka(void* arg) {
 
         pthread_mutex_lock(&gate->gate_mutex);
         print_time();
-        printf("Bramka %d: Narciarz %d wszedł na platformę.\n", gate->id, skier.id);
+        print_colored("\033[33m", "Bramka %d: Narciarz %d wszedł na platformę.\n", gate->id, skier.id);
         add_gate_record(skier.id);
         pthread_mutex_lock(&lower_platform.platform_mutex);
         if (lower_platform.count < MAX_PEOPLE_ON_PLATFORM) {
             lower_platform.skiers[lower_platform.count++] = skier;
             print_time();
-            printf("Bramka %d: Narciarz %d dodany na platformę.\n", gate->id, skier.id);
+            print_colored("\033[33m", "Bramka %d: Narciarz %d dodany na platformę.\n", gate->id, skier.id);
         } else {
             print_time();
-            printf("Bramka %d: Platforma jest pełna. Narciarz %d musi czekać.\n", gate->id, skier.id);
+            print_colored("\033[33m", "Bramka %d: Platforma jest pełna. Narciarz %d musi czekać.\n", gate->id, skier.id);
+            add_skier_to_queue(skier);
         }
         pthread_mutex_unlock(&lower_platform.platform_mutex);
         pthread_mutex_unlock(&gate->gate_mutex);
@@ -461,7 +473,7 @@ void* bramka(void* arg) {
         sleep(rand() % 2);
     }
     print_time();
-    printf("Bramka %d: Zamknięta.\n", gate->id);
+    print_colored("\033[33m", "Bramka %d: Zamknięta.\n", gate->id);
     return NULL;
 }
 
@@ -561,29 +573,35 @@ void* narciarz(void* arg) {
     pthread_mutex_unlock(&remaining_skiers_mutex);
 
     print_time();
-    printf("Narciarz %d czeka na wyciąg krzesełkowy.\n", skier->id);
+    print_colored("\033[33m", "Narciarz %d czeka na wyciąg krzesełkowy.\n", skier->id);
 
     // Czekaj, aż wyciąg zostanie wznowiony, zanim wsiądziesz
     pthread_mutex_lock(&lift_stop_mutex);
     while (is_lift_stopped) {
         skier->is_frozen = 1; // Oznacz narciarza jako zamrożonego
         print_time();
-        printf("Narciarz %d czeka na wznowienie wyciągu.\n", skier->id);
+        print_colored("\033[33m", "Narciarz %d czeka na wznowienie wyciągu.\n", skier->id);
         pthread_cond_wait(&lift_resumed_cond, &lift_stop_mutex); // Czekaj na sygnał wznowienia
         skier->is_frozen = 0; // Oznacz narciarza jako odmrożonego
         print_time();
-        printf("Narciarz %d wznowił przejazd.\n", skier->id);
+        print_colored("\033[33m", "Narciarz %d wznowił wjazd.\n", skier->id);
     }
     pthread_mutex_unlock(&lift_stop_mutex);
 
     sem_wait(&chair_lift.chair_sem);
     pthread_mutex_lock(&chair_lift.chair_mutex);
-    chair_lift.available_chairs--;
-    chair_lift.occupied_chairs++;
-    pthread_mutex_unlock(&chair_lift.chair_mutex);
+    if (chair_lift.available_chairs > 0) {
+        chair_lift.available_chairs--;
+        chair_lift.occupied_chairs++;
+        pthread_mutex_unlock(&chair_lift.chair_mutex);
+    } else {
+        pthread_mutex_unlock(&chair_lift.chair_mutex);
+        add_skier_to_queue(*skier);
+        return NULL;
+    }
 
     print_time();
-    printf("Narciarz %d jest na wyciągu krzesełkowym.\n", skier->id);
+    print_colored("\033[33m", "Narciarz %d jest na wyciągu krzesełkowym.\n", skier->id);
 
     // Symulacja przejazdu na górę
     int travel_time = 2; // Czas przejazdu na górę (2 minuty)
@@ -595,14 +613,14 @@ void* narciarz(void* arg) {
         if (is_lift_stopped) {
             skier->is_frozen = 1; // Oznacz narciarza jako zamrożonego
             print_time();
-            printf("Narciarz %d czeka na wyciągu (wyciąg zatrzymany).\n", skier->id);
+            print_colored("\033[33m", "Narciarz %d czeka na wyciągu (wyciąg zatrzymany).\n", skier->id);
 
             // Czekaj na sygnał wznowienia
             pthread_cond_wait(&lift_resumed_cond, &lift_stop_mutex);
 
             skier->is_frozen = 0; // Oznacz narciarza jako odmrożonego
             print_time();
-            printf("Narciarz %d kontynuuje przejazd (wyciąg wznowiony).\n", skier->id);
+            print_colored("\033[33m", "Narciarz %d kontynuuje wjazd (wyciąg wznowiony).\n", skier->id);
         }
         pthread_mutex_unlock(&lift_stop_mutex);
 
@@ -619,15 +637,15 @@ void* narciarz(void* arg) {
     pthread_mutex_unlock(&chair_lift.chair_mutex);
 
     print_time();
-    printf("Narciarz %d dotarł na górę.\n", skier->id);
+    print_colored("\033[33m", "Narciarz %d dotarł na górę.\n", skier->id);
 
     // Symulacja zjazdu
     int route = rand() % 3 + 1;
     print_time();
-    printf("Narciarz %d zjeżdża trasą %d.\n", skier->id, route);
+    print_colored("\033[33m", "Narciarz %d zjeżdża trasą %d.\n", skier->id, route);
     sleep(route == 1 ? T1 : (route == 2 ? T2 : T3));
     print_time();
-    printf("Narciarz %d zakończył zjazd.\n", skier->id);
+    print_colored("\033[33m", "Narciarz %d zakończył zjazd.\n", skier->id);
 
     // Zwiększ liczbę zjazdów dla karnetu
     add_ticket_ride_count(skier->id);
@@ -636,7 +654,7 @@ void* narciarz(void* arg) {
     int exit_path = rand() % NUM_EXIT_PATHS;
     pthread_mutex_lock(&exit_paths[exit_path].exit_mutex);
     print_time();
-    printf("Narciarz %d opuszcza stok przez ścieżkę %d.\n", skier->id, exit_path + 1);
+    print_colored("\033[33m", "Narciarz %d opuszcza stok przez ścieżkę %d.\n", skier->id, exit_path + 1);
     pthread_mutex_unlock(&exit_paths[exit_path].exit_mutex);
 
     // Zmniejsz liczbę narciarzy na stoku
@@ -819,8 +837,9 @@ int main() {
             if (pthread_create(&narciarz_thread, NULL, narciarz, &skier) != 0) {
                 print_time();
                 perror("Nie udało się utworzyć wątku narciarza");
+            } else {
+                pthread_detach(narciarz_thread);
             }
-            pthread_detach(narciarz_thread);
         } else {
             pthread_mutex_unlock(&lower_platform.platform_mutex);
         }

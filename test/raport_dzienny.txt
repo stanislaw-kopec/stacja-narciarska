@@ -1,0 +1,27 @@
+Raport dzienny:
+Łączna liczba narciarzy: 12
+Łączna liczba VIP-ów: 0
+Łączna liczba dzieci: 0
+Łączna liczba seniorów: 0
+Łączna liczba przejazdów: 12
+Szczegółowe informacje o biletach:
+ID biletu: 227, Czas wejścia: Fri Jan 17 13:51:45 2025
+ID biletu: 917, Czas wejścia: Fri Jan 17 13:51:46 2025
+ID biletu: 434, Czas wejścia: Fri Jan 17 13:51:46 2025
+ID biletu: 171, Czas wejścia: Fri Jan 17 13:51:47 2025
+ID biletu: 406, Czas wejścia: Fri Jan 17 13:51:49 2025
+ID biletu: 471, Czas wejścia: Fri Jan 17 13:51:51 2025
+ID biletu: 681, Czas wejścia: Fri Jan 17 13:51:52 2025
+ID biletu: 72, Czas wejścia: Fri Jan 17 13:51:57 2025
+ID biletu: 762, Czas wejścia: Fri Jan 17 13:51:58 2025
+ID biletu: 276, Czas wejścia: Fri Jan 17 13:51:58 2025
+ID biletu: 674, Czas wejścia: Fri Jan 17 13:52:00 2025
+ID biletu: 502, Czas wejścia: Fri Jan 17 13:52:01 2025
+Liczba zjazdów dla poszczególnych karnetów:
+ID biletu: 917, Liczba zjazdów: 1
+ID biletu: 406, Liczba zjazdów: 1
+ID biletu: 471, Liczba zjazdów: 1
+ID biletu: 681, Liczba zjazdów: 3
+ID biletu: 276, Liczba zjazdów: 1
+ID biletu: 674, Liczba zjazdów: 1
+ID biletu: 502, Liczba zjazdów: 4
