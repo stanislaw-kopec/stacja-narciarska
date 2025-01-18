@@ -798,7 +798,7 @@ int main() {
 
     time_t start_time = time(NULL);
     int Tp = 0;
-    int Tk = 20;
+    int Tk = 60;
 
     while (1) {
         time_t current_time = time(NULL);

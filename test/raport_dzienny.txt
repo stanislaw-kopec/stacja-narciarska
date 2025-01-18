@@ -1,27 +1,82 @@
 Raport dzienny:
-Łączna liczba narciarzy: 12
+Łączna liczba narciarzy: 47
 Łączna liczba VIP-ów: 0
 Łączna liczba dzieci: 0
 Łączna liczba seniorów: 0
-Łączna liczba przejazdów: 12
+Łączna liczba przejazdów: 47
 Szczegółowe informacje o biletach:
-ID biletu: 227, Czas wejścia: Fri Jan 17 13:51:45 2025
-ID biletu: 917, Czas wejścia: Fri Jan 17 13:51:46 2025
-ID biletu: 434, Czas wejścia: Fri Jan 17 13:51:46 2025
-ID biletu: 171, Czas wejścia: Fri Jan 17 13:51:47 2025
-ID biletu: 406, Czas wejścia: Fri Jan 17 13:51:49 2025
-ID biletu: 471, Czas wejścia: Fri Jan 17 13:51:51 2025
-ID biletu: 681, Czas wejścia: Fri Jan 17 13:51:52 2025
-ID biletu: 72, Czas wejścia: Fri Jan 17 13:51:57 2025
-ID biletu: 762, Czas wejścia: Fri Jan 17 13:51:58 2025
-ID biletu: 276, Czas wejścia: Fri Jan 17 13:51:58 2025
-ID biletu: 674, Czas wejścia: Fri Jan 17 13:52:00 2025
-ID biletu: 502, Czas wejścia: Fri Jan 17 13:52:01 2025
+ID biletu: 150, Czas wejścia: Sat Jan 18 18:30:54 2025
+ID biletu: 253, Czas wejścia: Sat Jan 18 18:30:58 2025
+ID biletu: 28, Czas wejścia: Sat Jan 18 18:30:58 2025
+ID biletu: 315, Czas wejścia: Sat Jan 18 18:31:02 2025
+ID biletu: 214, Czas wejścia: Sat Jan 18 18:31:02 2025
+ID biletu: 319, Czas wejścia: Sat Jan 18 18:31:02 2025
+ID biletu: 925, Czas wejścia: Sat Jan 18 18:31:02 2025
+ID biletu: 509, Czas wejścia: Sat Jan 18 18:31:02 2025
+ID biletu: 77, Czas wejścia: Sat Jan 18 18:31:04 2025
+ID biletu: 546, Czas wejścia: Sat Jan 18 18:31:05 2025
+ID biletu: 805, Czas wejścia: Sat Jan 18 18:31:07 2025
+ID biletu: 290, Czas wejścia: Sat Jan 18 18:31:08 2025
+ID biletu: 197, Czas wejścia: Sat Jan 18 18:31:09 2025
+ID biletu: 4, Czas wejścia: Sat Jan 18 18:31:09 2025
+ID biletu: 257, Czas wejścia: Sat Jan 18 18:31:10 2025
+ID biletu: 679, Czas wejścia: Sat Jan 18 18:31:11 2025
+ID biletu: 330, Czas wejścia: Sat Jan 18 18:31:11 2025
+ID biletu: 551, Czas wejścia: Sat Jan 18 18:31:11 2025
+ID biletu: 353, Czas wejścia: Sat Jan 18 18:31:11 2025
+ID biletu: 601, Czas wejścia: Sat Jan 18 18:31:15 2025
+ID biletu: 782, Czas wejścia: Sat Jan 18 18:31:17 2025
+ID biletu: 196, Czas wejścia: Sat Jan 18 18:31:19 2025
+ID biletu: 560, Czas wejścia: Sat Jan 18 18:31:21 2025
+ID biletu: 772, Czas wejścia: Sat Jan 18 18:31:23 2025
+ID biletu: 39, Czas wejścia: Sat Jan 18 18:31:24 2025
+ID biletu: 652, Czas wejścia: Sat Jan 18 18:31:24 2025
+ID biletu: 956, Czas wejścia: Sat Jan 18 18:31:25 2025
+ID biletu: 785, Czas wejścia: Sat Jan 18 18:31:25 2025
+ID biletu: 504, Czas wejścia: Sat Jan 18 18:31:27 2025
+ID biletu: 986, Czas wejścia: Sat Jan 18 18:31:27 2025
+ID biletu: 132, Czas wejścia: Sat Jan 18 18:31:29 2025
+ID biletu: 458, Czas wejścia: Sat Jan 18 18:31:30 2025
+ID biletu: 809, Czas wejścia: Sat Jan 18 18:31:32 2025
+ID biletu: 429, Czas wejścia: Sat Jan 18 18:31:38 2025
+ID biletu: 583, Czas wejścia: Sat Jan 18 18:31:42 2025
+ID biletu: 160, Czas wejścia: Sat Jan 18 18:31:43 2025
+ID biletu: 451, Czas wejścia: Sat Jan 18 18:31:44 2025
+ID biletu: 724, Czas wejścia: Sat Jan 18 18:31:46 2025
+ID biletu: 656, Czas wejścia: Sat Jan 18 18:31:47 2025
+ID biletu: 189, Czas wejścia: Sat Jan 18 18:31:47 2025
+ID biletu: 173, Czas wejścia: Sat Jan 18 18:31:48 2025
+ID biletu: 530, Czas wejścia: Sat Jan 18 18:31:49 2025
+ID biletu: 208, Czas wejścia: Sat Jan 18 18:31:49 2025
+ID biletu: 937, Czas wejścia: Sat Jan 18 18:31:49 2025
+ID biletu: 812, Czas wejścia: Sat Jan 18 18:31:51 2025
+ID biletu: 349, Czas wejścia: Sat Jan 18 18:31:51 2025
+ID biletu: 118, Czas wejścia: Sat Jan 18 18:31:53 2025
 Liczba zjazdów dla poszczególnych karnetów:
-ID biletu: 917, Liczba zjazdów: 1
-ID biletu: 406, Liczba zjazdów: 1
-ID biletu: 471, Liczba zjazdów: 1
-ID biletu: 681, Liczba zjazdów: 3
-ID biletu: 276, Liczba zjazdów: 1
-ID biletu: 674, Liczba zjazdów: 1
-ID biletu: 502, Liczba zjazdów: 4
+ID biletu: 28, Liczba zjazdów: 1
+ID biletu: 77, Liczba zjazdów: 1
+ID biletu: 925, Liczba zjazdów: 3
+ID biletu: 290, Liczba zjazdów: 2
+ID biletu: 353, Liczba zjazdów: 2
+ID biletu: 551, Liczba zjazdów: 1
+ID biletu: 330, Liczba zjazdów: 1
+ID biletu: 601, Liczba zjazdów: 1
+ID biletu: 197, Liczba zjazdów: 1
+ID biletu: 782, Liczba zjazdów: 3
+ID biletu: 315, Liczba zjazdów: 2
+ID biletu: 560, Liczba zjazdów: 1
+ID biletu: 785, Liczba zjazdów: 1
+ID biletu: 956, Liczba zjazdów: 1
+ID biletu: 652, Liczba zjazdów: 2
+ID biletu: 986, Liczba zjazdów: 1
+ID biletu: 504, Liczba zjazdów: 1
+ID biletu: 132, Liczba zjazdów: 2
+ID biletu: 458, Liczba zjazdów: 2
+ID biletu: 809, Liczba zjazdów: 3
+ID biletu: 429, Liczba zjazdów: 1
+ID biletu: 160, Liczba zjazdów: 1
+ID biletu: 451, Liczba zjazdów: 1
+ID biletu: 189, Liczba zjazdów: 2
+ID biletu: 937, Liczba zjazdów: 1
+ID biletu: 349, Liczba zjazdów: 3
+ID biletu: 812, Liczba zjazdów: 3
