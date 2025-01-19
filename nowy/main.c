@@ -7,9 +7,11 @@
 #include <sys/msg.h>
 #include <sys/sem.h>
 #include <time.h>
+#include <signal.h>
+#include <string.h>
 
 #define NUM_SKIERS 50
-#define PLATFORM_LIMIT 40
+#define PLATFORM_LIMIT 6
 #define CHAIR_LIMIT 3
 #define QUEUE_KEY 1234
 #define SEM_KEY 5678
@@ -25,12 +27,19 @@
 #define T2_TIME 3   // Czas przejazdu na trasie 2
 #define T3_TIME 4   // Czas przejazdu na trasie 3
 
+// Czas ważności karnetów (w sekundach)
+#define T1_VALIDITY 10
+#define T2_VALIDITY 15
+#define T3_VALIDITY 20
+#define T4_VALIDITY 25
+
 // Struktura narciarza
 struct Narciarz {
     int id;
     int wiek;
     int status_vip; // 1 dla VIP, 0 dla zwykłego narciarza
     char karnet[3]; // Typ karnetu (T1, T2, T3, T4)
+    time_t czas_waznosci; // Czas ważności karnetu
 };
 
 // Struktura wiadomości dla kolejki komunikatów
@@ -51,11 +60,28 @@ void aktualny_czas(char *bufor) {
 void przydziel_karnet(struct Narciarz *skier) {
     int rand_karnet = rand() % 4;
     switch (rand_karnet) {
-        case 0: strcpy(skier->karnet, T1); break;
-        case 1: strcpy(skier->karnet, T2); break;
-        case 2: strcpy(skier->karnet, T3); break;
-        case 3: strcpy(skier->karnet, T4); break;
+        case 0: 
+            strcpy(skier->karnet, T1);
+            skier->czas_waznosci = time(NULL) + T1_VALIDITY;
+            break;
+        case 1: 
+            strcpy(skier->karnet, T2);
+            skier->czas_waznosci = time(NULL) + T2_VALIDITY;
+            break;
+        case 2: 
+            strcpy(skier->karnet, T3);
+            skier->czas_waznosci = time(NULL) + T3_VALIDITY;
+            break;
+        case 3: 
+            strcpy(skier->karnet, T4);
+            skier->czas_waznosci = time(NULL) + T4_VALIDITY;
+            break;
     }
+}
+
+// Funkcja sprawdzająca ważność karnetu
+int sprawdz_waznosc_karnetu(struct Narciarz *skier) {
+    return time(NULL) <= skier->czas_waznosci;
 }
 
 // Funkcja losująca trasę i zwracająca czas przejazdu
@@ -69,23 +95,37 @@ int wybierz_trase() {
     }
 }
 
+// Funkcja obsługująca sygnał SIGTERM
+volatile sig_atomic_t czy_zakonczyc = 0;
+
+void handle_sigterm(int sig) {
+    czy_zakonczyc = 1; // Ustawienie flagi zakończenia
+}
+
 // Funkcja realizująca proces narciarza
 void narciarz_proces(struct Narciarz skier, int msg_queue_id, int sem_id) {
     struct message msg;
     char czas[20];
 
-    // Narciarz idzie do kasjera
-    printf("Narciarz %d idzie do kasjera, aby kupić karnet.\n", skier.id);
+    // Rejestracja obsługi sygnału SIGTERM
+    signal(SIGTERM, handle_sigterm);
 
-    // Kasjer przydziela karnet
+    // Narciarz kupuje karnet
     aktualny_czas(czas);
     printf("Narciarz %d kupił karnet %s o godzinie %s.\n", skier.id, skier.karnet, czas);
 
-    for (int i = 0; i < 3; i++) {  // Narciarz zjeżdża 3 razy
+    // Narciarz od razu idzie na wyciąg
+    while (!czy_zakonczyc) {  // Narciarz zjeżdża, dopóki nie otrzyma sygnału SIGTERM
+        // Sprawdzenie ważności karnetu przed wejściem na platformę
+        if (!sprawdz_waznosc_karnetu(&skier)) {
+            printf("Narciarz %d ma nieważny karnet %s. Opuszcza stację.\n", skier.id, skier.karnet);
+            break;
+        }
+
         int czas_zjazdu = wybierz_trase(); // Losowanie trasy
 
         // Narciarz wchodzi na peron
-        struct sembuf sem_op = {0, -1, 0};
+        struct sembuf sem_op = {0, -1, 0}; // Zajmij miejsce na peronie
         semop(sem_id, &sem_op, 1);
 
         // Narciarz siada na krzesełko
@@ -116,7 +156,7 @@ void narciarz_proces(struct Narciarz skier, int msg_queue_id, int sem_id) {
         printf("Narciarz %d zakończył zjazd (czas: %d sekund).\n", skier.id, czas_zjazdu);
     }
 
-    // Dodajemy komunikat przed zakończeniem procesu narciarza
+    // Narciarz opuszcza stację narciarską
     printf("Narciarz %d opuszcza stację narciarską.\n", skier.id);
 
     exit(0);
@@ -131,10 +171,13 @@ void kasjer_proces(int msg_queue_id) {
         exit(1);
     }
 
+    // Rejestracja obsługi sygnału SIGTERM
+    signal(SIGTERM, handle_sigterm);
+
     fprintf(plik, "Raport z dnia:\n\n");
     fprintf(plik, "Historia przejść przez bramki:\n");
 
-    while (1) {
+    while (!czy_zakonczyc) {
         if (msgrcv(msg_queue_id, &msg, sizeof(msg) - sizeof(long), 1, 0) < 0) {
             perror("Błąd odczytu wiadomości");
             break;
@@ -146,14 +189,14 @@ void kasjer_proces(int msg_queue_id) {
     }
 
     fclose(plik);
-    printf("Raport zapisano do pliku 'raport.txt'\n");
+    printf("Kasjer zakończył pracę.\n");
     exit(0);
 }
 
 // Funkcja fabryki dla tworzenia narciarzy w losowych odstępach czasowych
 void fabryka_narciarzy(int msg_queue_id, int sem_id) {
     int skier_id = 0;
-    while (1) {
+    while (!czy_zakonczyc) {
         struct Narciarz skier;
         skier.id = skier_id++;
         skier.wiek = rand() % 60 + 8; // Losowy wiek (8 - 67)
@@ -169,6 +212,40 @@ void fabryka_narciarzy(int msg_queue_id, int sem_id) {
         int czas_oczekiwania = rand() % 3 + 1;
         sleep(czas_oczekiwania);
     }
+}
+
+// Funkcja obsługująca sygnał zatrzymania wyciągu
+void zatrzymaj_wyciag(int sig) {
+    printf("Pracownik zatrzymał wyciąg z powodu zagrożenia.\n");
+    // Wysyłanie sygnału do drugiego pracownika
+    kill(getppid(), SIGUSR2);
+}
+
+// Funkcja obsługująca sygnał wznowienia wyciągu
+void wznow_wyciag(int sig) {
+    printf("Pracownik wznowił działanie wyciągu.\n");
+}
+
+// Proces pracownika1 (stacja dolna)
+void pracownik1_proces() {
+    signal(SIGUSR1, zatrzymaj_wyciag);
+    signal(SIGTERM, handle_sigterm);
+    while (!czy_zakonczyc) {
+        sleep(1); // Symulacja pracy
+    }
+    printf("Pracownik1 kończy pracę.\n");
+    exit(0);
+}
+
+// Proces pracownika2 (stacja górna)
+void pracownik2_proces() {
+    signal(SIGUSR2, wznow_wyciag);
+    signal(SIGTERM, handle_sigterm);
+    while (!czy_zakonczyc) {
+        sleep(1); // Symulacja pracy
+    }
+    printf("Pracownik2 kończy pracę.\n");
+    exit(0);
 }
 
 int main() {
@@ -196,8 +273,38 @@ int main() {
         kasjer_proces(msg_queue_id);
     }
 
+    // Tworzenie procesów pracowników
+    if (fork() == 0) {
+        pracownik1_proces();
+    }
+    if (fork() == 0) {
+        pracownik2_proces();
+    }
+
     // Tworzenie fabryki narciarzy
-    fabryka_narciarzy(msg_queue_id, sem_id);
+    if (fork() == 0) {
+        fabryka_narciarzy(msg_queue_id, sem_id);
+    }
+
+    // Symulacja czasu pracy wyciągu
+    time_t start_time = time(NULL);
+    time_t end_time = start_time + 60; // 60 sekund symulacji
+    while (time(NULL) < end_time) {
+        sleep(1);
+    }
+
+    // Wyłączenie wyciągu po upływie czasu
+    printf("Czas pracy wyciągu minął. Wyłączanie...\n");
+
+    // Wysłanie sygnału SIGTERM do wszystkich procesów potomnych
+    kill(0, SIGTERM);
+
+    // Czekanie na zakończenie procesów potomnych
+    while (wait(NULL) > 0);
+
+    // Zatrzymanie wyciągu po 5 sekundach
+    sleep(5);
+    printf("Wyciąg został zatrzymany.\n");
 
     return 0;
 }
