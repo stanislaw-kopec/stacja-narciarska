@@ -1,0 +1,6 @@
+Raport z dnia:
+
+Historia przejść przez bramki:
+Czas: , Karnet ID: 15, Wiek: 53, Status: VIP, Karnet: T1
+Czas: , Karnet ID: 16, Wiek: 64, Status: VIP, Karnet: T3
+Czas: , Karnet ID: 17, Wiek: 21, Status: VIP, Karnet: T1
