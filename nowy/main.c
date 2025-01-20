@@ -9,6 +9,7 @@
 #include <time.h>
 #include <signal.h>
 #include <string.h>
+#include <errno.h>
 
 #define NUM_SKIERS 50
 #define PLATFORM_LIMIT 6
@@ -40,6 +41,7 @@ struct Narciarz {
     int status_vip; // 1 dla VIP, 0 dla zwykłego narciarza
     char karnet[3]; // Typ karnetu (T1, T2, T3, T4)
     time_t czas_waznosci; // Czas ważności karnetu
+    int opiekun_id;  // ID opiekuna (0 jeśli brak)
 };
 
 // Struktura wiadomości dla kolejki komunikatów
@@ -178,10 +180,16 @@ void kasjer_proces(int msg_queue_id) {
     fprintf(plik, "Historia przejść przez bramki:\n");
 
     while (!czy_zakonczyc) {
-        if (msgrcv(msg_queue_id, &msg, sizeof(msg) - sizeof(long), 1, 0) < 0) {
+        int result = msgrcv(msg_queue_id, &msg, sizeof(msg) - sizeof(long), 1, 0);
+
+        if (result < 0) {
+            if (errno == EINTR) {
+                continue;  // Ponów odczyt wiadomości po przerwaniu sygnałem
+            }
             perror("Błąd odczytu wiadomości");
             break;
         }
+
         fprintf(plik, "Czas: %s, Karnet ID: %d, Wiek: %d, Status: %s, Karnet: %s\n",
                 msg.time, msg.skier.id, msg.skier.wiek,
                 msg.skier.status_vip ? "VIP" : "zwykły", msg.skier.karnet);
@@ -193,9 +201,16 @@ void kasjer_proces(int msg_queue_id) {
     exit(0);
 }
 
+
+pid_t narciarze_gid;  // ID grupy procesów narciarzy
+pid_t pracownik1_pid, pracownik2_pid, kasjer_pid;  // PID-y dla pracowników i kasjera
+
 // Funkcja fabryki dla tworzenia narciarzy w losowych odstępach czasowych
 void fabryka_narciarzy(int msg_queue_id, int sem_id) {
     int skier_id = 0;
+    int opiekun_id = 0;  // To będzie id dorosłego opiekuna
+    narciarze_gid = getpid();  // Ustawienie grupy procesów narciarzy
+
     while (!czy_zakonczyc) {
         struct Narciarz skier;
         skier.id = skier_id++;
@@ -203,8 +218,24 @@ void fabryka_narciarzy(int msg_queue_id, int sem_id) {
         skier.status_vip = rand() % 2; // VIP czy nie
         przydziel_karnet(&skier); // Losowanie karnetu dla narciarza
 
+        // Przypisanie dzieci (wiek 4-8 lat) do opiekunów
+        if (skier.wiek >= 4 && skier.wiek <= 8) {
+            // Dziecko w wieku 4-8 lat
+            skier.opiekun_id = opiekun_id;  // Przypisz dziecku opiekuna
+            printf("Dziecko %d przypisane do opiekuna %d\n", skier.id, skier.opiekun_id);
+
+            // Sprawdź, czy opiekun ma już dwóch podopiecznych
+            if (rand() % 2 == 0) {  // Jeśli dziecko dostaje opiekuna, zwiększamy liczbę dzieci pod opieką
+                opiekun_id++;
+            }
+        } else {
+            skier.opiekun_id = 0;  // Dorosły nie potrzebuje opiekuna
+        }
+
         // Tworzenie procesu dla narciarza
-        if (fork() == 0) {
+        pid_t pid = fork();
+        if (pid == 0) {
+            setpgid(0, narciarze_gid);  // Ustawienie procesu narciarza w tej samej grupie
             narciarz_proces(skier, msg_queue_id, sem_id);
         }
 
@@ -249,7 +280,6 @@ void pracownik2_proces() {
 }
 
 int main() {
-    pid_t pids[NUM_SKIERS];
     int msg_queue_id, sem_id;
 
     // Tworzenie kolejki komunikatów
@@ -265,46 +295,68 @@ int main() {
         perror("Błąd tworzenia semaforów");
         exit(1);
     }
-    semctl(sem_id, 0, SETVAL, PLATFORM_LIMIT); // Peron
-    semctl(sem_id, 1, SETVAL, CHAIR_LIMIT);   // Krzesełka
+    semctl(sem_id, 0, SETVAL, PLATFORM_LIMIT);
+    semctl(sem_id, 1, SETVAL, CHAIR_LIMIT);
 
     // Tworzenie procesu kasjera
-    if (fork() == 0) {
+    kasjer_pid = fork();
+    if (kasjer_pid == 0) {
         kasjer_proces(msg_queue_id);
     }
 
     // Tworzenie procesów pracowników
-    if (fork() == 0) {
+    pracownik1_pid = fork();
+    if (pracownik1_pid == 0) {
         pracownik1_proces();
     }
-    if (fork() == 0) {
+    pracownik2_pid = fork();
+    if (pracownik2_pid == 0) {
         pracownik2_proces();
     }
 
-    // Tworzenie fabryki narciarzy
-    if (fork() == 0) {
+    // Tworzenie fabryki narciarzy jako oddzielnej grupy procesów
+    pid_t narciarze_pid = fork();
+    if (narciarze_pid == 0) {
+        setpgid(0, 0);  // Tworzymy nową grupę procesów dla narciarzy
         fabryka_narciarzy(msg_queue_id, sem_id);
+        exit(0);
     }
+    setpgid(narciarze_pid, narciarze_pid);  // Ustawienie grupy dla procesu fabryki
 
     // Symulacja czasu pracy wyciągu
-    time_t start_time = time(NULL);
-    time_t end_time = start_time + 60; // 60 sekund symulacji
-    while (time(NULL) < end_time) {
-        sleep(1);
-    }
+    sleep(60);
 
-    // Wyłączenie wyciągu po upływie czasu
+    // Wyłączanie wyciągu i komunikat
     printf("Czas pracy wyciągu minął. Wyłączanie...\n");
 
-    // Wysłanie sygnału SIGTERM do wszystkich procesów potomnych
-    kill(0, SIGTERM);
+    // Wysłanie SIGTERM do grupy procesów narciarzy
+    killpg(narciarze_pid, SIGTERM);
 
-    // Czekanie na zakończenie procesów potomnych
-    while (wait(NULL) > 0);
+    // Oczekiwanie na zakończenie wszystkich narciarzy
+    int status;
+    while (waitpid(-narciarze_pid, &status, 0) > 0);
 
-    // Zatrzymanie wyciągu po 5 sekundach
+    // Opóźnienie 5 sekund przed wyłączeniem pracowników (czas na zejście ze stoku)
     sleep(5);
     printf("Wyciąg został zatrzymany.\n");
+
+    
+
+
+    // Wysłanie SIGTERM do kasjera i pracowników
+    kill(kasjer_pid, SIGTERM);
+    kill(pracownik1_pid, SIGTERM);
+    kill(pracownik2_pid, SIGTERM);
+
+    // Oczekiwanie na zakończenie procesów kasjera i pracowników
+    waitpid(kasjer_pid, NULL, 0);
+    waitpid(pracownik1_pid, NULL, 0);
+    waitpid(pracownik2_pid, NULL, 0);
+
+    printf("Wszyscy pracownicy zakończyli pracę.\n");
+
+    printf("Oczekiwanie na zakończenie wszystkich narciarzy...\n");
+    fflush(stdout);
 
     return 0;
 }
