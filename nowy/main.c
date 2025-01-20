@@ -10,12 +10,15 @@
 #include <signal.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/shm.h>
 
 #define NUM_SKIERS 50
 #define PLATFORM_LIMIT 6
 #define CHAIR_LIMIT 3
 #define QUEUE_KEY 1234
 #define SEM_KEY 5678
+
+#define SHM_KEY 7777  // Klucz do pamięci współdzielonej
 
 // Typ karnetu
 #define T1 "T1"
@@ -109,45 +112,48 @@ void narciarz_proces(struct Narciarz skier, int msg_queue_id, int sem_id) {
     struct message msg;
     char czas[20];
 
+    // Dołączanie pamięci współdzielonej
+    int shm_id = shmget(SHM_KEY, sizeof(int), 0666);
+    int *licznik_narciarzy = (int *)shmat(shm_id, NULL, 0);
+    if (licznik_narciarzy == (void *)-1) {
+        perror("Błąd dołączania pamięci współdzielonej");
+        exit(1);
+    }
+
     // Rejestracja obsługi sygnału SIGTERM
     signal(SIGTERM, handle_sigterm);
 
-    // Narciarz kupuje karnet
+    // Inkrementacja licznika narciarzy
+    __sync_fetch_and_add(licznik_narciarzy, 1);
+
     aktualny_czas(czas);
     printf("Narciarz %d kupił karnet %s o godzinie %s.\n", skier.id, skier.karnet, czas);
 
-    // Narciarz od razu idzie na wyciąg
-    while (!czy_zakonczyc) {  // Narciarz zjeżdża, dopóki nie otrzyma sygnału SIGTERM
-        // Sprawdzenie ważności karnetu przed wejściem na platformę
+    while (!czy_zakonczyc) {
         if (!sprawdz_waznosc_karnetu(&skier)) {
             printf("Narciarz %d ma nieważny karnet %s. Opuszcza stację.\n", skier.id, skier.karnet);
             break;
         }
 
-        int czas_zjazdu = wybierz_trase(); // Losowanie trasy
-
-        // Narciarz wchodzi na peron
-        struct sembuf sem_op = {0, -1, 0}; // Zajmij miejsce na peronie
+        int czas_zjazdu = wybierz_trase();
+        
+        struct sembuf sem_op = {0, -1, 0};
         semop(sem_id, &sem_op, 1);
 
-        // Narciarz siada na krzesełko
         sem_op.sem_num = 1;
         semop(sem_id, &sem_op, 1);
 
         aktualny_czas(czas);
-        printf("Narciarz %d (%s, wiek: %d) siada na krzesełko o czasie %s z karnetem %s.\n",
-               skier.id, skier.status_vip ? "VIP" : "zwykły", skier.wiek, czas, skier.karnet);
+        printf("Narciarz %d siada na krzesełko o czasie %s z karnetem %s.\n",
+               skier.id, czas, skier.karnet);
 
-        // Rejestracja przejścia w kolejce komunikatów
         msg.msg_type = 1;
         msg.skier = skier;
         aktualny_czas(msg.time);
         msgsnd(msg_queue_id, &msg, sizeof(msg) - sizeof(long), 0);
 
-        // Symulacja czasu jazdy na wyciągu (czas zależny od wybranej trasy)
         sleep(czas_zjazdu);
 
-        // Zwolnienie krzesełka i miejsca na peronie
         sem_op.sem_num = 1;
         sem_op.sem_op = 1;
         semop(sem_id, &sem_op, 1);
@@ -155,14 +161,20 @@ void narciarz_proces(struct Narciarz skier, int msg_queue_id, int sem_id) {
         sem_op.sem_num = 0;
         semop(sem_id, &sem_op, 1);
 
-        printf("Narciarz %d zakończył zjazd (czas: %d sekund).\n", skier.id, czas_zjazdu);
+        printf("Narciarz %d zakończył zjazd.\n", skier.id);
     }
 
-    // Narciarz opuszcza stację narciarską
     printf("Narciarz %d opuszcza stację narciarską.\n", skier.id);
+
+    // Dekrementacja licznika narciarzy
+    __sync_fetch_and_sub(licznik_narciarzy, 1);
+
+    // Odłączenie pamięci współdzielonej
+    shmdt(licznik_narciarzy);
 
     exit(0);
 }
+
 
 // Funkcja realizująca proces kasjera (rejestracja karnetów)
 void kasjer_proces(int msg_queue_id) {
@@ -279,8 +291,23 @@ void pracownik2_proces() {
     exit(0);
 }
 
+int *licznik_narciarzy;  // Wskaźnik do pamięci współdzielonej
+
 int main() {
-    int msg_queue_id, sem_id;
+    int msg_queue_id, sem_id, shm_id;
+
+    // Tworzenie pamięci współdzielonej dla licznika narciarzy
+    shm_id = shmget(SHM_KEY, sizeof(int), IPC_CREAT | 0666);
+    if (shm_id < 0) {
+        perror("Błąd tworzenia pamięci współdzielonej");
+        exit(1);
+    }
+    licznik_narciarzy = (int *)shmat(shm_id, NULL, 0);
+    if (licznik_narciarzy == (void *)-1) {
+        perror("Błąd dołączania pamięci współdzielonej");
+        exit(1);
+    }
+    *licznik_narciarzy = 0;  // Ustawienie początkowej liczby narciarzy
 
     // Tworzenie kolejki komunikatów
     msg_queue_id = msgget(QUEUE_KEY, IPC_CREAT | 0666);
@@ -314,34 +341,29 @@ int main() {
         pracownik2_proces();
     }
 
-    // Tworzenie fabryki narciarzy jako oddzielnej grupy procesów
+    // Tworzenie fabryki narciarzy
     pid_t narciarze_pid = fork();
     if (narciarze_pid == 0) {
         setpgid(0, 0);  // Tworzymy nową grupę procesów dla narciarzy
         fabryka_narciarzy(msg_queue_id, sem_id);
         exit(0);
     }
-    setpgid(narciarze_pid, narciarze_pid);  // Ustawienie grupy dla procesu fabryki
+    setpgid(narciarze_pid, narciarze_pid);
 
     // Symulacja czasu pracy wyciągu
-    sleep(60);
+    sleep(40);
 
-    // Wyłączanie wyciągu i komunikat
     printf("Czas pracy wyciągu minął. Wyłączanie...\n");
 
     // Wysłanie SIGTERM do grupy procesów narciarzy
     killpg(narciarze_pid, SIGTERM);
 
     // Oczekiwanie na zakończenie wszystkich narciarzy
-    int status;
-    while (waitpid(-narciarze_pid, &status, 0) > 0);
+    while (*licznik_narciarzy > 0) {
+        sleep(1);  // Czekamy, aż wszyscy narciarze opuszczą stok
+    }
 
-    // Opóźnienie 5 sekund przed wyłączeniem pracowników (czas na zejście ze stoku)
-    sleep(5);
-    printf("Wyciąg został zatrzymany.\n");
-
-    
-
+    printf("Wszyscy narciarze opuścili stok.\n");
 
     // Wysłanie SIGTERM do kasjera i pracowników
     kill(kasjer_pid, SIGTERM);
@@ -355,8 +377,9 @@ int main() {
 
     printf("Wszyscy pracownicy zakończyli pracę.\n");
 
-    printf("Oczekiwanie na zakończenie wszystkich narciarzy...\n");
-    fflush(stdout);
+    // Zwolnienie pamięci współdzielonej
+    shmdt(licznik_narciarzy);
+    shmctl(shm_id, IPC_RMID, NULL);
 
     return 0;
 }
