@@ -26,6 +26,12 @@
 #define T3 "T3"
 #define T4 "T4"
 
+// Ceny karnetów
+#define T1_PRICE 50
+#define T2_PRICE 70
+#define T3_PRICE 90
+#define T4_PRICE 120
+
 // Trasy z różnymi czasami przejazdu
 #define T1_TIME 2   // Czas przejazdu na trasie 1
 #define T2_TIME 3   // Czas przejazdu na trasie 2
@@ -45,6 +51,7 @@ struct Narciarz {
     char karnet[3]; // Typ karnetu (T1, T2, T3, T4)
     time_t czas_waznosci; // Czas ważności karnetu
     int opiekun_id;  // ID opiekuna (0 jeśli brak)
+    float cena_karnetu; // Cena karnetu po uwzględnieniu zniżki
 };
 
 // Struktura wiadomości dla kolejki komunikatów
@@ -59,6 +66,29 @@ void aktualny_czas(char *bufor) {
     time_t now = time(NULL);
     struct tm *tm_info = localtime(&now);
     strftime(bufor, 20, "%H:%M:%S", tm_info);
+}
+
+// Funkcja obliczająca cenę karnetu z uwzględnieniem zniżki
+float oblicz_cene_karnetu(struct Narciarz *skier) {
+    float cena;
+    if (strcmp(skier->karnet, T1) == 0) {
+        cena = T1_PRICE;
+    } else if (strcmp(skier->karnet, T2) == 0) {
+        cena = T2_PRICE;
+    } else if (strcmp(skier->karnet, T3) == 0) {
+        cena = T3_PRICE;
+    } else if (strcmp(skier->karnet, T4) == 0) {
+        cena = T4_PRICE;
+    } else {
+        cena = 0; // Domyślna cena, jeśli karnet nie jest rozpoznany
+    }
+
+    // Zniżka 25% dla dzieci do 12 lat i seniorów od 65 lat
+    if (skier->wiek <= 12 || skier->wiek >= 65) {
+        cena *= 0.75;
+    }
+
+    return cena;
 }
 
 // Funkcja przydzielająca karnet
@@ -82,6 +112,7 @@ void przydziel_karnet(struct Narciarz *skier) {
             skier->czas_waznosci = time(NULL) + T4_VALIDITY;
             break;
     }
+    skier->cena_karnetu = oblicz_cene_karnetu(skier);
 }
 
 // Funkcja sprawdzająca ważność karnetu
@@ -127,7 +158,7 @@ void narciarz_proces(struct Narciarz skier, int msg_queue_id, int sem_id) {
     __sync_fetch_and_add(licznik_narciarzy, 1);
 
     aktualny_czas(czas);
-    printf("Narciarz %d kupił karnet %s o godzinie %s.\n", skier.id, skier.karnet, czas);
+    printf("Narciarz %d kupił karnet %s za %.2f zł o godzinie %s.\n", skier.id, skier.karnet, skier.cena_karnetu, czas);
 
     while (!czy_zakonczyc) {
         if (!sprawdz_waznosc_karnetu(&skier)) {
@@ -175,7 +206,6 @@ void narciarz_proces(struct Narciarz skier, int msg_queue_id, int sem_id) {
     exit(0);
 }
 
-
 // Funkcja realizująca proces kasjera (rejestracja karnetów)
 void kasjer_proces(int msg_queue_id) {
     struct message msg;
@@ -202,9 +232,9 @@ void kasjer_proces(int msg_queue_id) {
             break;
         }
 
-        fprintf(plik, "Czas: %s, Karnet ID: %d, Wiek: %d, Status: %s, Karnet: %s\n",
+        fprintf(plik, "Czas: %s, Karnet ID: %d, Wiek: %d, Status: %s, Karnet: %s, Cena: %.2f zł\n",
                 msg.time, msg.skier.id, msg.skier.wiek,
-                msg.skier.status_vip ? "VIP" : "zwykły", msg.skier.karnet);
+                msg.skier.status_vip ? "VIP" : "zwykły", msg.skier.karnet, msg.skier.cena_karnetu);
         fflush(plik);
     }
 
@@ -212,7 +242,6 @@ void kasjer_proces(int msg_queue_id) {
     printf("Kasjer zakończył pracę.\n");
     exit(0);
 }
-
 
 pid_t narciarze_gid;  // ID grupy procesów narciarzy
 pid_t pracownik1_pid, pracownik2_pid, kasjer_pid;  // PID-y dla pracowników i kasjera
