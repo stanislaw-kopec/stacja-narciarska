@@ -11,13 +11,14 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/shm.h>
+#include <stdbool.h>
+#include <pthread.h>
 
 #define NUM_SKIERS 50
 #define PLATFORM_LIMIT 6
 #define CHAIR_LIMIT 3
 #define QUEUE_KEY 1234
 #define SEM_KEY 5678
-
 #define SHM_KEY 7777  // Klucz do pamięci współdzielonej
 
 // Typ karnetu
@@ -138,6 +139,43 @@ void handle_sigterm(int sig) {
     czy_zakonczyc = 1; // Ustawienie flagi zakończenia
 }
 
+// Globalna flaga do kontrolowania stanu wyciągu
+volatile sig_atomic_t czy_wyciag_zatrzymany = 0;
+
+// Semafor binarny do synchronizacji dostępu do wyciągu
+int sem_wyciag_id;
+
+// PID pracownika2
+pid_t pracownik2_pid;
+
+// Funkcja obsługująca sygnał zatrzymania wyciągu
+void zatrzymaj_wyciag(int sig) {
+    char czas[20];
+    aktualny_czas(czas);
+    printf("[%s] Pracownik zatrzymał wyciąg z powodu zagrożenia.\n", czas);
+    czy_wyciag_zatrzymany = 1; // Ustawienie flagi zatrzymania
+
+    // Blokowanie dostępu do wyciągu
+    struct sembuf sem_op = {0, -1, 0};
+    semop(sem_wyciag_id, &sem_op, 1);
+
+    sleep(3);  // Symulacja zatrzymania wyciągu na 3 sekundy
+    printf("[%s] Pracownik wysyła sygnał do drugiego pracownika, aby wznowić wyciąg.\n", czas);
+    kill(pracownik2_pid, SIGUSR2);  // Wysyłanie sygnału do pracownika2
+}
+
+// Funkcja obsługująca sygnał wznowienia wyciągu
+void wznow_wyciag(int sig) {
+    char czas[20];
+    aktualny_czas(czas);
+    printf("[%s] Pracownik otrzymał sygnał i wznowił działanie wyciągu.\n", czas);
+    czy_wyciag_zatrzymany = 0; // Wznowienie wyciągu
+
+    // Odblokowanie dostępu do wyciągu
+    struct sembuf sem_op = {0, 1, 0};
+    semop(sem_wyciag_id, &sem_op, 1);
+}
+
 // Funkcja realizująca proces narciarza
 void narciarz_proces(struct Narciarz skier, int msg_queue_id, int sem_id) {
     struct message msg;
@@ -164,6 +202,11 @@ void narciarz_proces(struct Narciarz skier, int msg_queue_id, int sem_id) {
         if (!sprawdz_waznosc_karnetu(&skier)) {
             printf("Narciarz %d ma nieważny karnet %s. Opuszcza stację.\n", skier.id, skier.karnet);
             break;
+        }
+
+        // Czekaj, jeśli wyciąg jest zatrzymany
+        while (czy_wyciag_zatrzymany) {
+            sleep(1);
         }
 
         int czas_zjazdu = wybierz_trase();
@@ -244,7 +287,7 @@ void kasjer_proces(int msg_queue_id) {
 }
 
 pid_t narciarze_gid;  // ID grupy procesów narciarzy
-pid_t pracownik1_pid, pracownik2_pid, kasjer_pid;  // PID-y dla pracowników i kasjera
+pid_t pracownik1_pid, kasjer_pid;  // PID-y dla pracowników i kasjera
 
 // Funkcja fabryki dla tworzenia narciarzy w losowych odstępach czasowych
 void fabryka_narciarzy(int msg_queue_id, int sem_id) {
@@ -286,24 +329,15 @@ void fabryka_narciarzy(int msg_queue_id, int sem_id) {
     }
 }
 
-// Funkcja obsługująca sygnał zatrzymania wyciągu
-void zatrzymaj_wyciag(int sig) {
-    printf("Pracownik zatrzymał wyciąg z powodu zagrożenia.\n");
-    // Wysyłanie sygnału do drugiego pracownika
-    kill(getppid(), SIGUSR2);
-}
-
-// Funkcja obsługująca sygnał wznowienia wyciągu
-void wznow_wyciag(int sig) {
-    printf("Pracownik wznowił działanie wyciągu.\n");
-}
-
 // Proces pracownika1 (stacja dolna)
 void pracownik1_proces() {
     signal(SIGUSR1, zatrzymaj_wyciag);
     signal(SIGTERM, handle_sigterm);
     while (!czy_zakonczyc) {
-        sleep(1); // Symulacja pracy
+        int czas_oczekiwania = rand() % 3 + 15;  // Losowy czas 15-17 sekund
+        sleep(czas_oczekiwania);
+        printf("Pracownik1 zatrzymuje wyciąg.\n");
+        kill(getpid(), SIGUSR1);  // Wysyłanie sygnału do samego siebie
     }
     printf("Pracownik1 kończy pracę.\n");
     exit(0);
@@ -353,6 +387,14 @@ int main() {
     }
     semctl(sem_id, 0, SETVAL, PLATFORM_LIMIT);
     semctl(sem_id, 1, SETVAL, CHAIR_LIMIT);
+
+    // Tworzenie semafora binarnego do synchronizacji wyciągu
+    sem_wyciag_id = semget(SEM_KEY + 1, 1, IPC_CREAT | 0666);
+    if (sem_wyciag_id < 0) {
+        perror("Błąd tworzenia semafora binarnego");
+        exit(1);
+    }
+    semctl(sem_wyciag_id, 0, SETVAL, 1);  // Inicjalizacja semafora binarnego
 
     // Tworzenie procesu kasjera
     kasjer_pid = fork();
@@ -409,6 +451,9 @@ int main() {
     // Zwolnienie pamięci współdzielonej
     shmdt(licznik_narciarzy);
     shmctl(shm_id, IPC_RMID, NULL);
+
+    // Usunięcie semafora binarnego
+    semctl(sem_wyciag_id, 0, IPC_RMID);
 
     return 0;
 }
