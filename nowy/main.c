@@ -380,7 +380,7 @@ int main() {
     setpgid(narciarze_pid, narciarze_pid);
 
     // Symulacja czasu pracy wyciągu
-    sleep(40);
+    sleep(60);
 
     printf("Czas pracy wyciągu minął. Wyłączanie...\n");
 
@@ -389,7 +389,7 @@ int main() {
 
     // Oczekiwanie na zakończenie wszystkich narciarzy
     while (*licznik_narciarzy > 0) {
-        sleep(1);  // Czekamy, aż wszyscy narciarze opuszczą stok
+        sleep(1);  // Czekamy, aż wszyscy narciarze opuszczą stokk
     }
 
     printf("Wszyscy narciarze opuścili stok.\n");
